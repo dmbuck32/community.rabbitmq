@@ -206,14 +206,14 @@ class RabbitMqPolicy(object):
                     method,
                     self._login_user,
                 )
-                self.module.fail_json(msg=msg)
+                self._module.fail_json(msg=msg)
                 return None
             if name is None:
                 msg = "Error in HTTP request (method %s) for (endpoint policies), user %s. name must be defined." % (
                     method,
                     self._login_user,
                 )
-                self.module.fail_json(msg=msg)
+                self._module.fail_json(msg=msg)
                 return None
 
         policies_endpoint = ['policies']
@@ -256,7 +256,7 @@ class RabbitMqPolicy(object):
                 endpoint,
                 self._login_user,
             )
-            self.module.fail_json(msg=msg, exception=exception)
+            self._module.fail_json(msg=msg, exception=exception)
 
         return response
 
@@ -269,7 +269,7 @@ class RabbitMqPolicy(object):
                     "Error trying to retrieve rabbitmq version. "
                     "Status code '%s'."
                 ) % (response.status_code)
-                self.module.fail_json(msg=msg)
+                self._module.fail_json(msg=msg)
                 return None
 
             return Version(response.json()['rabbitmq_version'])
@@ -297,11 +297,24 @@ class RabbitMqPolicy(object):
                     "Error trying to retrieve policies on vhost %s in rabbitmq. "
                     "Status code '%s'."
                 ) % (self._vhost, response.status_code)
-                self.module.fail_json(msg=msg)
+                self._module.fail_json(msg=msg)
                 return None
 
-            # TODO: Parse response data.
-            return None
+            # PARSE THE RESPONSE DATA.
+            # The response data is a json list with field names. The logic of the code expects tab delimited strings.
+            policy_response = response.json()
+            self._module.debug(f'[list_policies] {json.dumps(policy_response)}')
+            policies = []
+            if self._version and self._version >= Version('3.7.0'):
+                for policy in policy_response:
+                    policies.append("%s\t%s\t%s\t%s\t%s\t%s" % (
+                        policy['vhost'], policy['name'], policy['pattern'], policy['apply-to'], json.dumps(policy['definition']), policy['priority']))
+            else:
+                # Prior to 3.7.0, the apply-to & pattern fields were swapped.
+                for policy in policy_response:
+                    policies.append("%s\t%s\t%s\t%s\t%s\t%s" % (
+                        policy['vhost'], policy['name'], policy['apply-to'], policy['pattern'],  json.dumps(policy['definition']), policy['priority']))
+            return policies
 
         else:
             if self._version and self._version >= Version('3.7.9'):
@@ -332,21 +345,23 @@ class RabbitMqPolicy(object):
 
     def set(self):
         if self._login_host is not None:
-            response = self._request_policy_api('put', self._vhost, self._name, data={
+            policy = {
                 "vhost": self._vhost,
                 "name": self._name,
                 "pattern": self._pattern,
-                "apply_to": self._apply_to,
-                "definition": json.dumps(self._tags),
-                "priority": self._priority
-            })
+                "apply-to": self._apply_to,
+                "definition": self._tags,
+                "priority": int(self._priority) # Priority must be a number.
+            }
+            self._module.debug(f'[set_policy] {json.dumps(policy)}')
+            response = self._request_policy_api('put', self._vhost, self._name, data=policy)
 
             if response is not None and not response.ok:
                 msg = (
                     "Error trying to set policy %s in rabbitmq. "
-                    "Status code '%s'."
-                ) % (self._name, response.status_code)
-                self.module.fail_json(msg=msg)
+                    "Response %s\n"
+                ) % (self._name, response.text)
+                self._module.fail_json(msg=msg)
         else:
             args = ['set_policy']
             args.append(self._name)
@@ -368,7 +383,7 @@ class RabbitMqPolicy(object):
                     "Error trying to remove policy %s in rabbitmq. "
                     "Status code '%s'."
                 ) % (self._name, response.status_code)
-                self.module.fail_json(msg=msg)
+                self._module.fail_json(msg=msg)
         else:
             return self._exec(['clear_policy', self._name])
 
