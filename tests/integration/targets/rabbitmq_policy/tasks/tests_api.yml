@@ -72,6 +72,27 @@
       that:
         - add_policy is not changed
 
+  - name: Update a policy
+    rabbitmq_policy:
+      name: "{{ ha_policy_name }}"
+      apply_to: queues
+      pattern: ".*"
+      login_user: guest
+      login_password: guest
+      login_host: 127.0.0.1
+      tags:
+        message-ttl: 1000
+        expires: 1000
+        max-length: 1000
+      vhost: "{{ vhost_name }}"
+    register: update_policy
+
+  - name: Check that the policy is updated
+    assert:
+      that:
+        - update_policy is changed
+        - update_policy is success
+
   - name: Remove the HA policy
     rabbitmq_policy:
       name: "{{ ha_policy_name }}"
