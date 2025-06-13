@@ -145,7 +145,11 @@ class RabbitMqVhost(object):
         self.key = client_key
 
         self._tracing = False
-        self._rabbitmqctl = module.get_bin_path("rabbitmqctl", True)
+
+        if self.login_host is not None:
+            self._rabbitmqctl = module.get_bin_path('rabbitmqctl', False)
+        else:
+            self._rabbitmqctl = module.get_bin_path('rabbitmqctl', True)
 
     def _exec(self, args, force_exec_in_check_mode=False):
         if not self.module.check_mode or (

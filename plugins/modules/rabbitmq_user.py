@@ -306,7 +306,7 @@ class RabbitMqUser(object):
         self.existing_permissions = dict()
         self.existing_topic_permissions = dict()
         if self.login_host is not None:
-            # self._rabbitmqctl = module.get_bin_path('rabbitmqctl', False)
+            self._rabbitmqctl = module.get_bin_path('rabbitmqctl', False)
             self._version = None
         else:
             self._rabbitmqctl = module.get_bin_path('rabbitmqctl', True)
