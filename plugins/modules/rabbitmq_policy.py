@@ -439,7 +439,7 @@ def main():
         # API Params.
         login_user=dict(type="str", no_log=True),
         login_password=dict(type="str", no_log=True),
-        login_host=dict(type="str", required=False, default=None),
+        login_host=dict(type="str"),
         login_port=dict(type="str", default="15672"),
         login_protocol=dict(type="str", default="http", choices=["http", "https"]),
         ca_cert=dict(type="path"),
