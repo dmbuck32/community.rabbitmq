@@ -732,7 +732,7 @@ class RabbitMqUser(object):
             self.login_protocol,
             self.login_host,
             self.login_port,
-            username,
+            parse.quote(username, ""),
         )
 
     def get_topic_permissions_api_url_builder(self, username):
@@ -740,29 +740,29 @@ class RabbitMqUser(object):
             self.login_protocol,
             self.login_host,
             self.login_port,
-            username,
+            parse.quote(username, ""),
         )
 
     def permissions_api_url_builder(self, username, vhost):
-        if vhost is None or vhost == "/":
-            vhost = "%2F"
+        if vhost is None:
+            vhost = "/"
         return "%s://%s:%s/api/permissions/%s/%s" % (
             self.login_protocol,
             self.login_host,
             self.login_port,
-            vhost,
-            username,
+            parse.quote(vhost, ""),
+            parse.quote(username, ""),
         )
 
     def topic_permissions_api_url_builder(self, username, vhost):
-        if vhost is None or vhost == "/":
-            vhost = "%2F"
+        if vhost is None:
+            vhost = "/"
         return "%s://%s:%s/api/topic-permissions/%s/%s" % (
             self.login_protocol,
             self.login_host,
             self.login_port,
-            vhost,
-            username,
+            parse.quote(vhost, ""),
+            parse.quote(username, ""),
         )
 
     def treat_tags_for_api(self):
