@@ -451,7 +451,10 @@ def main():
         supports_check_mode=True
     )
 
-    if not HAS_REQUESTS:
+    # Check if requests library is required.
+    # Only make it required if not using rabbitmqctl.
+    login_host = module.params["login_host"]
+    if not HAS_REQUESTS and login_host is not None:
         module.fail_json(msg=missing_required_lib("requests"), exception=REQUESTS_IMP_ERR)
 
     name = module.params['name']

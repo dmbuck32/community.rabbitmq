@@ -229,7 +229,7 @@ except ImportError:
     REQUESTS_IMP_ERR = traceback.format_exc()
     HAS_REQUESTS = False
 
-from ansible.module_utils.basic import AnsibleModule  # noqa: E402
+from ansible.module_utils.basic import AnsibleModule, missing_required_lib  # noqa: E402
 from ansible.module_utils.common.collections import count
 
 
@@ -305,12 +305,13 @@ class RabbitMqUser(object):
         self.existing_tags = None
         self.existing_permissions = dict()
         self.existing_topic_permissions = dict()
-        if self.login_host is not None:
-            self._rabbitmqctl = module.get_bin_path('rabbitmqctl', False)
-            self._version = None
-        else:
-            self._rabbitmqctl = module.get_bin_path('rabbitmqctl', True)
-            self._version = self._check_version()
+
+        require_rabbitmqctl = self.login_host is None
+        self._rabbitmqctl = module.get_bin_path("rabbitmqctl", require_rabbitmqctl)
+        # NOTE: due to the rabbitmqctl --formatter argument being added in 3.7.6, the version
+        # of RabbitMQ needs to be known when parsing the output of the rabbitmqctl command.
+        # This is not necessary when using the management API.
+        self._version =  self._check_version() if require_rabbitmqctl else None
 
     def _check_version(self):
         """Get the version of the RabbitMQ server."""
@@ -869,6 +870,11 @@ def main():
     login_port = module.params['login_port']
     login_user = module.params['login_user']
     login_password = module.params['login_password']
+
+    # Check if requests library is required.
+    # Only make it required if not using rabbitmqctl.
+    if not HAS_REQUESTS and login_host is not None:
+        module.fail_json(msg=missing_required_lib("requests"), exception=REQUESTS_IMP_ERR)
 
     if permissions:
         vhosts = [permission.get('vhost', '/') for permission in permissions]

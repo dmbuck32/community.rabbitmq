@@ -305,7 +305,9 @@ def main():
     client_cert = module.params["client_cert"]
     client_key = module.params["client_key"]
 
-    if not HAS_REQUESTS:
+    # Check if requests library is required.
+    # Only make it required if not using rabbitmqctl.
+    if not HAS_REQUESTS and login_host is not None:
         module.fail_json(msg=missing_required_lib("requests"), exception=REQUESTS_IMP_ERR)
 
     result = dict(changed=False, name=name, state=state)
