@@ -147,7 +147,6 @@ EXAMPLES = r'''
 import json
 import traceback
 
-from ansible_collections.community.rabbitmq.plugins.module_utils.version import LooseVersion as Version
 from ansible.module_utils.basic import AnsibleModule, missing_required_lib
 from ansible.module_utils.six.moves.urllib import parse as urllib_parse
 
@@ -159,6 +158,7 @@ try:
 except ImportError:
     REQUESTS_IMP_ERR = traceback.format_exc()
     HAS_REQUESTS = False
+
 
 class Policy(object):
     def __init__(self, vhost, name, pattern, apply_to, definition, priority):
@@ -206,6 +206,7 @@ class Policy(object):
 
     def __str__(self):
         return json.dumps(self.json())
+
 
 class RabbitMqPolicy(object):
 
@@ -337,7 +338,7 @@ class RabbitMqPolicy(object):
             self._module.debug(f'[list_policies] {json.dumps(policies)}')
             return [Policy.parse(policy) for policy in policies]
 
-    def get_policy_definition(self, default={}):
+    def get_policy_definition(self, default=None):
         return next(
             (policy.json() for policy in self._list_policies() if policy.name == self._name), default)
 
@@ -357,13 +358,12 @@ class RabbitMqPolicy(object):
 
     def json(self):
         return {
-                "vhost": self._vhost,
-                "name": self._name,
-                "pattern": self._pattern,
-                "apply-to": self._apply_to,
-                "definition": self._tags,
-                "priority": int(self._priority)  # Priority must be a number.
-            }
+            "vhost": self._vhost,
+            "name": self._name,
+            "pattern": self._pattern,
+            "apply-to": self._apply_to,
+            "definition": self._tags,
+            "priority": int(self._priority)}  # Priority must be a number.
 
     def set(self):
         if self._login_host is not None:
@@ -460,7 +460,7 @@ def main():
 
     if state == 'present' and rabbitmq_policy.has_modifications():
         # NOTE: This needs to be retrieved before the policy is modified.
-        cluster_policy = rabbitmq_policy.get_policy_definition()
+        cluster_policy = rabbitmq_policy.get_policy_definition({})
         rabbitmq_policy.set()
         result['changed'] = True
         result['diff'] = dict(
@@ -469,7 +469,7 @@ def main():
         )
     elif state == 'absent' and rabbitmq_policy.should_be_deleted():
         # NOTE: This needs to be retrieved before the policy is removed.
-        cluster_policy = rabbitmq_policy.get_policy_definition()
+        cluster_policy = rabbitmq_policy.get_policy_definition({})
         rabbitmq_policy.clear()
         result['changed'] = True
         result['diff'] = dict(
