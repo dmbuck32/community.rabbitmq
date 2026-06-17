@@ -223,7 +223,6 @@ import traceback
 REQUESTS_IMP_ERR = None
 try:
     import requests
-
     HAS_REQUESTS = True
 except ImportError:
     REQUESTS_IMP_ERR = traceback.format_exc()
@@ -474,7 +473,7 @@ class RabbitMqUser(object):
                     exception=exception,
                 )
 
-            if response.ok or (response.status_code == 204):
+            if response.ok:
                 permissions = list()
                 for permission in response.json():
                     permissions.append({
@@ -524,7 +523,7 @@ class RabbitMqUser(object):
                     exception=exception,
                 )
 
-            if response.ok or (response.status_code == 204):
+            if response.ok:
                 permissions = list()
                 for permission in response.json():
                     permissions.append({
@@ -573,10 +572,7 @@ class RabbitMqUser(object):
                     exception=exception,
                 )
 
-            if response.ok or response.json().get('reason') == "Not management user":
-                return True
-            else:
-                return False
+            return  response.ok or (response.json().get('reason') == "Not management user")
         else:
             rc, out, err = self._exec(['authenticate_user', self.username, self.password], check_rc=False)
             return rc == 0
@@ -586,6 +582,8 @@ class RabbitMqUser(object):
             data = {"password": self.password, "tags": self.treat_tags_for_api() or ""}
             response = self.request_users_api('PUT', data)
 
+            # Don't add a user if one already exists.
+            # The RabbitMQ API returns a 204 when the user exists.
             if not response.ok or (response.status_code == 204):
                 msg = ("Error trying to create user %s in rabbitmq. "
                        "Status code '%s'.") % (self.username, response.status_code)
@@ -607,19 +605,16 @@ class RabbitMqUser(object):
 
     def change_password(self):
         if self.login_host is not None:
-            data = {"password": self.password or "", "tags": self.tags or ""}
+            data = {"password": self.password or "", "tags": self.treat_tags_for_api() or ""}
             response = self.request_users_api('PUT', data)
 
-            if not response.ok or (response.status_code == 204):
-                msg = ("Error trying to set tags for the user %s in rabbitmq. "
+            # Accept both 201 and 204 status codes.
+            # HTTP 201 is returned when the user is created.
+            # HTTP 204 is returned when the user is updated.
+            if response.status_code not in (201, 204):
+                msg = ("Error trying to change the password for the user %s in rabbitmq. "
                        "Status code '%s'.") % (self.username, response.status_code)
                 self.module.fail_json(msg=msg)
-            else:
-                self.module.fail_json(
-                    msg="Error setting tags for the user",
-                    status=response.status_code,
-                    details=response.text
-                )
         else:
             if self.password:
                 self._exec(['change_password', self.username, self.password])
@@ -631,7 +626,10 @@ class RabbitMqUser(object):
             data = {"password": self.password, "tags": self.treat_tags_for_api() or ""}
             response = self.request_users_api('PUT', data)
 
-            if not response.status_code == 204:
+            # Accept both 201 and 204 status codes to ensure compatibility with older rabbitmq versions.
+            # - https://github.com/rabbitmq/rabbitmq-server/blob/main/release-notes/3.6.7.md?plain=1#L30
+            # - https://github.com/rabbitmq/rabbitmq-server/blob/main/release-notes/3.7.0.md?plain=1#L258
+            if response.status_code not in (201, 204):
                 msg = ("Error trying to set tags for the user %s in rabbitmq. "
                        "Status code '%s'.") % (self.username, response.status_code)
                 self.module.fail_json(msg=msg)
@@ -850,6 +848,9 @@ def main():
         argument_spec=arg_spec,
         supports_check_mode=False
     )
+
+    if not HAS_REQUESTS:
+        module.fail_json(msg=missing_required_lib("requests"), exception=REQUESTS_IMP_ERR)
 
     username = module.params['user']
     password = module.params['password']

@@ -181,10 +181,10 @@ def main():
     r = requests.get(url, auth=(module.params['login_user'], module.params['login_password']),
                      verify=module.params['ca_cert'], cert=(module.params['client_cert'], module.params['client_key']))
 
-    if r.status_code == 200:
+    if r.status_code == requests.codes.ok:
         queue_exists = True
         response = r.json()
-    elif r.status_code == 404:
+    elif r.status_code == requests.codes.not_found:
         queue_exists = False
         response = r.text
     else:

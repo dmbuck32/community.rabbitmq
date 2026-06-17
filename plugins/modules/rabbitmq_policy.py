@@ -146,7 +146,6 @@ from ansible.module_utils.six.moves.urllib import parse as urllib_parse
 REQUESTS_IMP_ERR = None
 try:
     import requests
-
     HAS_REQUESTS = True
 except ImportError:
     REQUESTS_IMP_ERR = traceback.format_exc()
